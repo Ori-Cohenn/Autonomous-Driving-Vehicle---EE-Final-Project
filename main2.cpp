@@ -88,8 +88,7 @@ void LaneCenter() {
 
 int main() {
     setup();
-    wiringPiSetup();
-    pinMode(0, OUTPUT);
+   
     if (!cap.isOpened()) {
         cerr << "Error opening webcam." << endl;
         return -1;
