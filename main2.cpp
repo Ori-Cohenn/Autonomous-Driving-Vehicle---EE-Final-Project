@@ -60,13 +60,13 @@ void Perspective()
     line(frame, Destination[3], Destination[2], Scalar(0, 255, 0), 2);
     line(frame, Destination[2], Destination[0], Scalar(0, 255, 0), 2);
     Matrix = getPerspectiveTransform(Source, Destination);
-    warpPerspective(frame, framePers, Matrix, Size(CameraWIDTH, CameraHeight)); // 120, 120
+    warpPerspective(frame, framePers, Matrix, Size(CameraWIDTH, CameraHeight));
 }
 
 void Threshold()
 {
     cvtColor(framePers, frameGray, COLOR_RGB2GRAY);
-    inRange(frameGray, 240, 255, frameThresh);
+    inRange(frameGray, 245, 255, frameThresh);
     Canny(frameGray, frameEdge, 900, 900, 3, false);
     add(frameThresh, frameEdge, frameFinal);
     cvtColor(frameFinal, frameFinal, COLOR_GRAY2RGB);
@@ -78,7 +78,8 @@ void Histrogram()
 {
     histrogramLane.resize(CameraWIDTH);
     histrogramLane.clear();
-
+    histrogramLaneEnd.resize(CameraWIDTH);
+    histrogramLaneEnd.clear();
     for (int i = 0; i < CameraWIDTH; i++) // frame.size().width = 400
     {
         // ROILane = frameFinalDuplicate(Rect(i, 140, 1, 100));
@@ -91,7 +92,7 @@ void Histrogram()
         histrogramLaneEnd.push_back((int)(sum(ROILaneEnd)[0]));
     }
     laneEnd = sum(histrogramLaneEnd)[0];
-    cout << "Lane END = " << endl;
+    cout << "Lane END = " << laneEnd << endl;
 }
 
 void LaneFinder()
@@ -119,7 +120,7 @@ void LaneCenter()
 
     // frameCenter = 188;
     // adjust the values from 400x240 to 160x120
-    frameCenter = 75;
+    frameCenter = 67;
 
     // line(frameFinal, Point2f(laneCenter, 0), Point2f(laneCenter, 240), Scalar(0, 255, 0), 3);
     // line(frameFinal, Point2f(frameCenter, 0), Point2f(frameCenter, 240), Scalar(255, 0, 0), 3);
@@ -165,11 +166,11 @@ int main()
             ss.str(" ");
             ss.clear();
             ss << " Lane End";
-            putText(frame, ss.str(), Point2f(5, 15), FONT_HERSHEY_SIMPLEX, 0.4, Scalar(0, 0, 255), 1);
+            putText(frame, ss.str(), Point2f(5, 30), FONT_HERSHEY_SIMPLEX, 0.4, Scalar(0, 0, 255), 1);
             lines.set_values({0, 1, 1, 1});
-            cout << "Lane End" << endl;
+            // cout << "Lane End" << endl;
         }
-        if (Result == 0)
+        else if (Result == 0)
         {
             ss.str(" ");
             ss.clear();
