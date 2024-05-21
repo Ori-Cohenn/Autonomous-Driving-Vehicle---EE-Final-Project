@@ -4,31 +4,34 @@
 #include <gpiod.hpp>
 #include <vector>
 
-#define CameraWIDTH 400 //160  // 400 //640
-#define CameraHeight 240 //120 // 240 //480
+#define CameraWIDTH 400
+#define CameraHeight 240
 
 using namespace cv;
 using namespace std;
 using namespace std::chrono;
 using namespace gpiod; // line class changed to lineGPIO
 
+// Image Processing variables
 Mat frame, Matrix, framePers, frameGray, frameThresh, frameEdge, frameFinal, frameFinalDuplicate, frameFinalDuplicate1;
 Mat ROILane, ROILaneEnd;
 int LeftLanePos, RightLanePos, frameCenter, laneCenter, Result, laneEnd;
 
 vector<int> histrogramLane;
 vector<int> histrogramLaneEnd;
-// Point2f Source[] = {Point2f(145, 250), Point2f(430, 250), Point2f(55, CameraHeight), Point2f(535, CameraHeight)}; // do not change
-// Point2f Destination[] = {Point2f(160, 230), Point2f(410, 230), Point2f(160, 480), Point2f(410, 480)};
-Point2f Source[] = {Point2f(40,135),Point2f(230,135),Point2f(10,230), Point2f(260,230)};
-Point2f Destination[] = {Point2f(65,0),Point2f(200,0),Point2f(65,240), Point2f(200,240)};
-// take the source and destination points and changed them accordingly for 160x120
-// Point2f Source[] = {Point2f(20, 60), Point2f(115, 60), Point2f(0, 120), Point2f(145, 120)};
-// Point2f Destination[] = {Point2f(20, 0), Point2f(115, 0), Point2f(20, 120), Point2f(115, 120)};
+
+Point2f Source[] = {Point2f(40, 135), Point2f(230, 135), Point2f(10, 230), Point2f(260, 230)};
+Point2f Destination[] = {Point2f(65, 0), Point2f(200, 0), Point2f(65, 240), Point2f(200, 240)};
 
 VideoCapture cap(0);
 
 stringstream ss;
+
+// Machine Learning variables
+CascadeClassifier Stop_Cascade, Object_Cascade, Traffic_Cascade;
+Mat frame_Stop, RoI_Stop, gray_Stop, frame_Object, RoI_Object, gray_Object, frame_Traffic, RoI_Traffic, gray_Traffic;
+vector<Rect> Stop, Object, Traffic;
+int dist_Stop, dist_Object, dist_Traffic;
 
 void setup()
 {
@@ -36,17 +39,18 @@ void setup()
     cap.set(CAP_PROP_FRAME_HEIGHT, CameraHeight); // Adjust based on your webcam specifications
     cap.set(CAP_PROP_FPS, 100);
     cap.set(CAP_PROP_BRIGHTNESS, 15);
-    cap.set(CAP_PROP_CONTRAST, 5);   // 50
-    cap.set(CAP_PROP_SATURATION,100); // 50
-    cap.set(CAP_PROP_GAIN, 20);      // 10
+    cap.set(CAP_PROP_CONTRAST, 5);     // 50
+    cap.set(CAP_PROP_SATURATION, 100); // 50
+    cap.set(CAP_PROP_GAIN, 20);        // 10
 }
-
-
 
 void captureFrames()
 {
     if (cap.read(frame))
     {
+        cvtColor(frame, frame_Stop, COLOR_BGR2RGB);
+        cvtColor(frame, frame_Object, COLOR_BGR2RGB);
+        cvtColor(frame, frame_Traffic, COLOR_BGR2RGB);
         cvtColor(frame, frame, COLOR_BGR2RGB);
     }
 }
@@ -82,11 +86,10 @@ void Histrogram()
     histrogramLane.clear();
     histrogramLaneEnd.resize(CameraWIDTH);
     histrogramLaneEnd.clear();
-    for (int i = 0; i < CameraWIDTH; i++) // frame.size().width = 400
+    for (int i = 0; i < CameraWIDTH; i++)
     {
         ROILane = frameFinalDuplicate(Rect(i, 140, 1, 100));
-        // take the ROILane and adjust the values from 400x240 to 160x120
-        // ROILane = frameFinalDuplicate(Rect(i, 60, 1, 60));
+
         divide(255, ROILane, ROILane);
         histrogramLane.push_back((int)(sum(ROILane)[0]));
         ROILaneEnd = frameFinalDuplicate1(Rect(i, 0, 1, CameraHeight));
@@ -101,39 +104,109 @@ void LaneFinder()
 {
     vector<int>::iterator LeftPtr;
     LeftPtr = max_element(histrogramLane.begin(), histrogramLane.begin() + 140);
-    // LeftPtr = max_element(histrogramLane.begin(), histrogramLane.begin() + 60);
     LeftLanePos = distance(histrogramLane.begin(), LeftPtr);
 
     vector<int>::iterator RightPtr;
-    RightPtr = max_element(histrogramLane.begin()+140, histrogramLane.end()-20);
-    // RightPtr = max_element(histrogramLane.begin() + 100, histrogramLane.end());
+    RightPtr = max_element(histrogramLane.begin() + 140, histrogramLane.end() - 20);
     RightLanePos = distance(histrogramLane.begin(), RightPtr);
 
     line(frameFinal, Point2f(LeftLanePos, 0), Point2f(LeftLanePos, 240), Scalar(0, 255, 0), 2);
     line(frameFinal, Point2f(RightLanePos, 0), Point2f(RightLanePos, 240), Scalar(0, 255, 0), 2);
-    // adjust the values from 400x240 to 160x120
-    // line(frameFinal, Point2f(LeftLanePos, 0), Point2f(LeftLanePos, 120), Scalar(0, 255, 0), 2);
-    // line(frameFinal, Point2f(RightLanePos, 0), Point2f(RightLanePos, 120), Scalar(0, 255, 0), 2);
 }
 
 void LaneCenter()
 {
     laneCenter = (RightLanePos - LeftLanePos) / 2 + LeftLanePos;
-
-
-
     frameCenter = 133;
-    // adjust the values from 400x240 to 160x120
-    // frameCenter = 67;
-
     line(frameFinal, Point2f(laneCenter, 0), Point2f(laneCenter, 240), Scalar(0, 255, 0), 3);
     line(frameFinal, Point2f(frameCenter, 0), Point2f(frameCenter, 240), Scalar(255, 0, 0), 3);
-    // adjust the values from 400x240 to 160x120
-    // line(frameFinal, Point2f(laneCenter, 0), Point2f(laneCenter, 120), Scalar(0, 255, 0), 3);
-    // line(frameFinal, Point2f(frameCenter, 0), Point2f(frameCenter, 120), Scalar(255, 0, 0), 3);
-
     Result = laneCenter - frameCenter;
 }
+
+void Stop_detection()
+{
+    if (!Stop_Cascade.load("//home//pi//New_project//MachineLearning//Stop_cascade.xml"))
+    {
+        cerr << "Unable to open stop cascade file" << endl;
+    }
+
+    RoI_Stop = frame_Stop(Rect(100,0,200,230));
+    cvtColor(RoI_Stop, gray_Stop, COLOR_RGB2GRAY);
+    equalizeHist(gray_Stop, gray_Stop);
+    Stop_Cascade.detectMultiScale(gray_Stop, Stop);
+
+    for (int i = 0; i < Stop.size(); i++)
+    {
+        Point P1(Stop[i].x, Stop[i].y);
+        Point P2(Stop[i].x + Stop[i].width, Stop[i].y + Stop[i].height);
+
+        rectangle(RoI_Stop, P1, P2, Scalar(0, 0, 255), 1);
+        putText(RoI_Stop, "Stop Sign", P1, FONT_HERSHEY_SIMPLEX, 0.4, Scalar(0, 0, 255, 255), 1);
+        dist_Stop = (-2) * (P2.x - P1.x) + 108;
+        // dist_Stop = (P2.x - P1.x);
+
+        ss.str(" ");
+        ss.clear();
+        ss << "D = " << dist_Stop << "cm";
+        putText(RoI_Stop, ss.str(), Point2f(1, 130), FONT_HERSHEY_SIMPLEX, 0.4, Scalar(0, 0, 255), 1);
+    }
+}
+
+// void Traffic_detection()
+// {
+//     if (!Traffic_Cascade.load("//home//pi//Desktop//MACHINE LEARNING//Trafficc_cascade.xml"))
+//     {
+//         cerr << "Unable to open Traffic cascade file" << endl;
+//     }
+
+//     RoI_Traffic = frame_Traffic(Rect(200, 0, 200, 140));
+//     cvtColor(RoI_Traffic, gray_Traffic, COLOR_RGB2GRAY);
+//     equalizeHist(gray_Traffic, gray_Traffic);
+//     Traffic_Cascade.detectMultiScale(gray_Traffic, Traffic);
+
+//     for (int i = 0; i < Traffic.size(); i++)
+//     {
+//         Point P1(Traffic[i].x, Traffic[i].y);
+//         Point P2(Traffic[i].x + Traffic[i].width, Traffic[i].y + Traffic[i].height);
+
+//         rectangle(RoI_Traffic, P1, P2, Scalar(0, 0, 255), 2);
+//         putText(RoI_Traffic, "Traffic Light", P1, FONT_HERSHEY_PLAIN, 1, Scalar(0, 0, 255, 255), 2);
+//         dist_Traffic = (-1.07) * (P2.x - P1.x) + 102.597;
+
+//         ss.str(" ");
+//         ss.clear();
+//         ss << "D = " << P2.x - P1.x << "cm";
+//         putText(RoI_Traffic, ss.str(), Point2f(1, 130), 0, 1, Scalar(0, 0, 255), 2);
+//     }
+// }
+
+// void Object_detection()
+// {
+//     if (!Object_Cascade.load("//home//pi//Desktop//MACHINE LEARNING//Object_cascade.xml"))
+//     {
+//         printf("Unable to open Object cascade file");
+//     }
+
+//     RoI_Object = frame_Object(Rect(100, 50, 200, 190));
+//     cvtColor(RoI_Object, gray_Object, COLOR_RGB2GRAY);
+//     equalizeHist(gray_Object, gray_Object);
+//     Object_Cascade.detectMultiScale(gray_Object, Object);
+
+//     for (int i = 0; i < Object.size(); i++)
+//     {
+//         Point P1(Object[i].x, Object[i].y);
+//         Point P2(Object[i].x + Object[i].width, Object[i].y + Object[i].height);
+
+//         rectangle(RoI_Object, P1, P2, Scalar(0, 0, 255), 2);
+//         putText(RoI_Object, "Object", P1, FONT_HERSHEY_PLAIN, 1, Scalar(0, 0, 255, 255), 2);
+//         dist_Object = (-0.48) * (P2.x - P1.x) + 56.6;
+
+//         ss.str(" ");
+//         ss.clear();
+//         ss << "D = " << dist_Object << "cm";
+//         putText(RoI_Object, ss.str(), Point2f(1, 130), 0, 1, Scalar(0, 0, 255), 2);
+//     }
+// }
 
 int main()
 {
@@ -164,7 +237,34 @@ int main()
         Histrogram();
         LaneFinder();
         LaneCenter();
+        Stop_detection();
+        // Object_detection();
+        // Traffic_detection();
 
+        if (dist_Stop > 5 && dist_Stop < 20)
+        {
+            ss.str(" ");
+            ss.clear();
+            ss << "Stop Sign";
+            putText(frame, ss.str(), Point2f(5, 30), FONT_HERSHEY_SIMPLEX, 0.4, Scalar(0, 0, 255), 1);
+            lines.set_values({1, 0, 0, 0}); // decimal = 8
+            cout << "Stop Sign" << endl;
+            dist_Stop = 0;
+
+            goto Stop_Sign;
+        }
+
+        // if (dist_Object > 5 && dist_Object < 30)
+        // {
+        //     digitalWrite(21, 1);
+        //     digitalWrite(22, 0); // decimal = 9
+        //     digitalWrite(23, 0);
+        //     digitalWrite(24, 1);
+        //     cout << "Object" << endl;
+        //     dist_Object = 0;
+
+        //     goto Object;
+        // }
         // if (laneEnd > 7000 && laneEnd<10000) // stop
         // {
         //     ss.str(" ");
@@ -179,7 +279,6 @@ int main()
             ss.str(" ");
             ss.clear();
             ss << "Result = " << Result << " Move Forward";
-            // putText(frame, ss.str(), Point2f(1, 50), 0, 1, Scalar(0, 0, 255), 2);
             putText(frame, ss.str(), Point2f(5, 15), FONT_HERSHEY_SIMPLEX, 0.4, Scalar(0, 0, 255), 1);
             lines.set_values({0, 0, 0, 0});
             cout << "Forward" << endl;
@@ -244,6 +343,8 @@ int main()
             lines.set_values({0, 1, 1, 0}); // decimal = 6
             cout << "Left3" << endl;
         }
+    Stop_Sign:
+        // Object:
 
         namedWindow("orignal", WINDOW_KEEPRATIO);
         moveWindow("orignal", 0, 100);
@@ -257,6 +358,20 @@ int main()
         moveWindow("Final", 1280, 100);
         resizeWindow("Final", 640, 480);
         imshow("Final", frameFinal);
+        namedWindow("Stop Sign", WINDOW_KEEPRATIO);
+        moveWindow("Stop Sign", 1280, 580);
+        resizeWindow("Stop Sign", 640, 480);
+        imshow("Stop Sign", RoI_Stop);
+
+        // namedWindow("Object", WINDOW_KEEPRATIO);
+        // moveWindow("Object", 640, 580);
+        // resizeWindow("Object", 640, 480);
+        // imshow("Object", RoI_Object);
+
+        // namedWindow("Traffic", WINDOW_KEEPRATIO);
+        // moveWindow("Traffic", 0, 580);
+        // resizeWindow("Traffic", 640, 480);
+        // imshow("Traffic", RoI_Traffic);
         waitKey(1);
         // if (waitKey(5) >= 0){
         //     break;
