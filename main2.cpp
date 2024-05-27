@@ -20,8 +20,12 @@ int LeftLanePos, RightLanePos, frameCenter, laneCenter, Result, laneEnd;
 vector<int> histrogramLane;
 vector<int> histrogramLaneEnd;
 
-Point2f Source[] = {Point2f(40, 135), Point2f(230, 135), Point2f(10, 230), Point2f(260, 230)};
-Point2f Destination[] = {Point2f(65, 0), Point2f(200, 0), Point2f(65, 240), Point2f(200, 240)};
+// Point2f Source[] = {Point2f(40, 135), Point2f(230, 135), Point2f(10, 230), Point2f(260, 230)};
+// Point2f Destination[] = {Point2f(65, 0), Point2f(200, 0), Point2f(65, 240), Point2f(200, 240)};
+
+Point2f Source[] = {Point2f(60, 135), Point2f(200, 135), Point2f(30, 210), Point2f(230, 210)};
+Point2f Destination[] = {Point2f(85, 0), Point2f(180, 0), Point2f(85, 240), Point2f(180, 240)};
+
 
 VideoCapture cap(0);
 
@@ -39,7 +43,7 @@ void setup()
     cap.set(CAP_PROP_FRAME_HEIGHT, CameraHeight); // Adjust based on your webcam specifications
     cap.set(CAP_PROP_FPS, 100);
     cap.set(CAP_PROP_BRIGHTNESS, 15);
-    cap.set(CAP_PROP_CONTRAST, 5);     // 50
+    cap.set(CAP_PROP_CONTRAST, 10);     // 50
     cap.set(CAP_PROP_SATURATION, 100); // 50
     cap.set(CAP_PROP_GAIN, 20);        // 10
 }
@@ -130,7 +134,7 @@ void Stop_detection()
         cerr << "Unable to open stop cascade file" << endl;
     }
 
-    RoI_Stop = frame_Stop(Rect(100,0,200,230));
+    RoI_Stop = frame_Stop(Rect(100,0,200,240));
     cvtColor(RoI_Stop, gray_Stop, COLOR_RGB2GRAY);
     equalizeHist(gray_Stop, gray_Stop);
     Stop_Cascade.detectMultiScale(gray_Stop, Stop);
@@ -142,13 +146,40 @@ void Stop_detection()
 
         rectangle(RoI_Stop, P1, P2, Scalar(0, 0, 255), 1);
         putText(RoI_Stop, "Stop Sign", P1, FONT_HERSHEY_SIMPLEX, 0.4, Scalar(0, 0, 255, 255), 1);
-        dist_Stop = (-2) * (P2.x - P1.x) + 108;
-        // dist_Stop = (P2.x - P1.x);
-
+        dist_Stop = (-3.33333) * (P2.x - P1.x) + 170;
+        // dist_Stop = (P2.x - P1.x) ;
         ss.str(" ");
         ss.clear();
         ss << "D = " << dist_Stop << "cm";
         putText(RoI_Stop, ss.str(), Point2f(1, 130), FONT_HERSHEY_SIMPLEX, 0.4, Scalar(0, 0, 255), 1);
+    }
+}
+
+void Object_detection()
+{
+    if (!Object_Cascade.load("//home//pi//New_project//MachineLearning//Object_cascade.xml"))
+    {
+        cerr << "Unable to open Object cascade file" << endl;
+    }
+
+    RoI_Object = frame_Object(Rect(0, 10, 10, 10));
+    cvtColor(RoI_Object, gray_Object, COLOR_RGB2GRAY);
+    equalizeHist(gray_Object, gray_Object);
+    Object_Cascade.detectMultiScale(gray_Object, Object);
+
+    for (int i = 0; i < Object.size(); i++)
+    {
+        Point P1(Object[i].x, Object[i].y);
+        Point P2(Object[i].x + Object[i].width, Object[i].y + Object[i].height);
+
+        rectangle(RoI_Object, P1, P2, Scalar(0, 0, 255), 1);
+        putText(RoI_Object, "Object", P1, FONT_HERSHEY_SIMPLEX, 0.4, Scalar(0, 0, 255, 255), 1);
+        dist_Object = (-0.48) * (P2.x - P1.x) + 56.6;
+
+        ss.str(" ");
+        ss.clear();
+        ss << "D = " << dist_Object << "cm";
+        putText(RoI_Object, ss.str(), Point2f(1, 130), FONT_HERSHEY_SIMPLEX, 0.4, Scalar(0, 0, 255), 1);
     }
 }
 
@@ -177,34 +208,6 @@ void Stop_detection()
 //         ss.clear();
 //         ss << "D = " << P2.x - P1.x << "cm";
 //         putText(RoI_Traffic, ss.str(), Point2f(1, 130), 0, 1, Scalar(0, 0, 255), 2);
-//     }
-// }
-
-// void Object_detection()
-// {
-//     if (!Object_Cascade.load("//home//pi//Desktop//MACHINE LEARNING//Object_cascade.xml"))
-//     {
-//         printf("Unable to open Object cascade file");
-//     }
-
-//     RoI_Object = frame_Object(Rect(100, 50, 200, 190));
-//     cvtColor(RoI_Object, gray_Object, COLOR_RGB2GRAY);
-//     equalizeHist(gray_Object, gray_Object);
-//     Object_Cascade.detectMultiScale(gray_Object, Object);
-
-//     for (int i = 0; i < Object.size(); i++)
-//     {
-//         Point P1(Object[i].x, Object[i].y);
-//         Point P2(Object[i].x + Object[i].width, Object[i].y + Object[i].height);
-
-//         rectangle(RoI_Object, P1, P2, Scalar(0, 0, 255), 2);
-//         putText(RoI_Object, "Object", P1, FONT_HERSHEY_PLAIN, 1, Scalar(0, 0, 255, 255), 2);
-//         dist_Object = (-0.48) * (P2.x - P1.x) + 56.6;
-
-//         ss.str(" ");
-//         ss.clear();
-//         ss << "D = " << dist_Object << "cm";
-//         putText(RoI_Object, ss.str(), Point2f(1, 130), 0, 1, Scalar(0, 0, 255), 2);
 //     }
 // }
 
@@ -238,10 +241,10 @@ int main()
         LaneFinder();
         LaneCenter();
         Stop_detection();
-        // Object_detection();
+        //Object_detection();
         // Traffic_detection();
 
-        if (dist_Stop > 5 && dist_Stop < 20)
+        if (dist_Stop > 15 && dist_Stop < 40)
         {
             ss.str(" ");
             ss.clear();
@@ -253,13 +256,13 @@ int main()
 
             goto Stop_Sign;
         }
-
-        // if (dist_Object > 5 && dist_Object < 30)
+        // else if (dist_Object > 15 && dist_Object < 40)
         // {
-        //     digitalWrite(21, 1);
-        //     digitalWrite(22, 0); // decimal = 9
-        //     digitalWrite(23, 0);
-        //     digitalWrite(24, 1);
+        //     ss.str(" ");
+        //     ss.clear();
+        //     ss << "Object";
+        //     putText(frame, ss.str(), Point2f(5, 30), FONT_HERSHEY_SIMPLEX, 0.4, Scalar(0, 0, 255), 1);
+        //     lines.set_values({1, 0, 0, 1}); // decimal = 8
         //     cout << "Object" << endl;
         //     dist_Object = 0;
 
@@ -274,7 +277,7 @@ int main()
         //     lines.set_values({0, 1, 1, 1});
         //     // cout << "Lane End" << endl;
         // }
-        if (Result == 0)
+        else if (Result == 0)
         {
             ss.str(" ");
             ss.clear();
@@ -344,7 +347,7 @@ int main()
             cout << "Left3" << endl;
         }
     Stop_Sign:
-        // Object:
+    //Object:
 
         namedWindow("orignal", WINDOW_KEEPRATIO);
         moveWindow("orignal", 0, 100);
@@ -372,7 +375,17 @@ int main()
         // moveWindow("Traffic", 0, 580);
         // resizeWindow("Traffic", 640, 480);
         // imshow("Traffic", RoI_Traffic);
-        waitKey(1);
+        // waitKey(1);
+        while(waitKey(1) != -1){ // stop
+            ss.str(" ");
+            ss.clear();
+            ss << "stoppp";
+            putText(frame, ss.str(), Point2f(5, 15), FONT_HERSHEY_SIMPLEX, 0.4, Scalar(0, 0, 255), 1);
+            lines.set_values({1, 1, 1, 1});
+            cout << "stoppp" << endl;
+            if (cin.get() == 's')
+                break;
+        }
         // if (waitKey(5) >= 0){
         //     break;
         // }

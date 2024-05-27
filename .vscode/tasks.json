@@ -13,7 +13,7 @@
                 "--target",
                 "all",
                 "-j",
-                "4"
+                "6"
             ],
             "group": "build",
             "problemMatcher": [
