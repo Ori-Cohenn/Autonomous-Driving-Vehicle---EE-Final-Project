@@ -162,7 +162,7 @@ void Object_detection()
         cerr << "Unable to open Object cascade file" << endl;
     }
 
-    RoI_Object = frame_Object(Rect(0, 10, 10, 10));
+    RoI_Object = frame_Object(Rect(0, 0, 300, 200));
     cvtColor(RoI_Object, gray_Object, COLOR_RGB2GRAY);
     equalizeHist(gray_Object, gray_Object);
     Object_Cascade.detectMultiScale(gray_Object, Object);
@@ -174,7 +174,8 @@ void Object_detection()
 
         rectangle(RoI_Object, P1, P2, Scalar(0, 0, 255), 1);
         putText(RoI_Object, "Object", P1, FONT_HERSHEY_SIMPLEX, 0.4, Scalar(0, 0, 255, 255), 1);
-        dist_Object = (-0.48) * (P2.x - P1.x) + 56.6;
+        dist_Object = (-1.625) * (P2.x - P1.x) + 165.75;
+        // dist_Object= (P2.x - P1.x) ;
 
         ss.str(" ");
         ss.clear();
@@ -241,7 +242,7 @@ int main()
         LaneFinder();
         LaneCenter();
         Stop_detection();
-        //Object_detection();
+        Object_detection();
         // Traffic_detection();
 
         if (dist_Stop > 15 && dist_Stop < 40)
@@ -256,18 +257,18 @@ int main()
 
             goto Stop_Sign;
         }
-        // else if (dist_Object > 15 && dist_Object < 40)
-        // {
-        //     ss.str(" ");
-        //     ss.clear();
-        //     ss << "Object";
-        //     putText(frame, ss.str(), Point2f(5, 30), FONT_HERSHEY_SIMPLEX, 0.4, Scalar(0, 0, 255), 1);
-        //     lines.set_values({1, 0, 0, 1}); // decimal = 8
-        //     cout << "Object" << endl;
-        //     dist_Object = 0;
+        else if (dist_Object > 20 && dist_Object < 40)
+        {
+            ss.str(" ");
+            ss.clear();
+            ss << "Object";
+            putText(frame, ss.str(), Point2f(5, 30), FONT_HERSHEY_SIMPLEX, 0.4, Scalar(0, 0, 255), 1);
+            lines.set_values({1, 0, 0, 1}); // decimal = 8
+            cout << "Object" << endl;
+            dist_Object = 0;
 
-        //     goto Object;
-        // }
+            goto Object;
+        }
         // if (laneEnd > 7000 && laneEnd<10000) // stop
         // {
         //     ss.str(" ");
@@ -347,7 +348,7 @@ int main()
             cout << "Left3" << endl;
         }
     Stop_Sign:
-    //Object:
+    Object:
 
         namedWindow("orignal", WINDOW_KEEPRATIO);
         moveWindow("orignal", 0, 100);
@@ -366,10 +367,10 @@ int main()
         resizeWindow("Stop Sign", 640, 480);
         imshow("Stop Sign", RoI_Stop);
 
-        // namedWindow("Object", WINDOW_KEEPRATIO);
-        // moveWindow("Object", 640, 580);
-        // resizeWindow("Object", 640, 480);
-        // imshow("Object", RoI_Object);
+        namedWindow("Object", WINDOW_KEEPRATIO);
+        moveWindow("Object", 640, 580);
+        resizeWindow("Object", 640, 480);
+        imshow("Object", RoI_Object);
 
         // namedWindow("Traffic", WINDOW_KEEPRATIO);
         // moveWindow("Traffic", 0, 580);
@@ -379,28 +380,14 @@ int main()
         while(waitKey(1) != -1){ // stop
             ss.str(" ");
             ss.clear();
-            ss << "stoppp";
+            ss << "Emergency stop!";
             putText(frame, ss.str(), Point2f(5, 15), FONT_HERSHEY_SIMPLEX, 0.4, Scalar(0, 0, 255), 1);
             lines.set_values({1, 1, 1, 1});
-            cout << "stoppp" << endl;
+            cout << "Emergency stop!" << endl;
             if (cin.get() == 's')
                 break;
         }
-        // if (waitKey(5) >= 0){
-        //     break;
-        // }
-        // char c = (char)waitKey(1);
-        // while (c == 'q' || c == 'Q' || c == 27)
-        // {
-        //     ss.str(" ");
-        //     ss.clear();
-        //     ss << " Lane End";
-        //     putText(frame, ss.str(), Point2f(5, 15), FONT_HERSHEY_SIMPLEX, 0.4, Scalar(0, 0, 255), 1);
-        //     lines.set_values({0, 1, 1, 1});
-        //     cout << "Lane End" << endl;
-        //     if ((char)waitKey(1) == 'c')
-        //         break;
-        // }
+
         double fps = getTickFrequency() / (getTickCount() - start);
         cout << "FPS : " << fps << endl;
     }
