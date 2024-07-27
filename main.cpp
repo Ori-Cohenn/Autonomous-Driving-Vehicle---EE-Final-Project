@@ -18,7 +18,7 @@ Mat ROILane, ROILaneEnd;
 int LeftLanePos, RightLanePos, frameCenter, laneCenter, Result, laneEnd;
 
 vector<int> histrogramLane;
-vector<int> histrogramLaneEnd;
+// vector<int> histrogramLaneEnd;
 
 Point2f Source[] = {Point2f(60, 135), Point2f(200, 135), Point2f(30, 210), Point2f(230, 210)};
 Point2f Destination[] = {Point2f(85, 0), Point2f(180, 0), Point2f(85, 240), Point2f(180, 240)};
@@ -30,8 +30,8 @@ stringstream ss;
 // Machine Learning variables
 CascadeClassifier Stop_Cascade, Object_Cascade, Traffic_Cascade, Uturn_Cascade;
 Mat frame_Stop, RoI_Stop, gray_Stop, frame_Object, RoI_Object, gray_Object, frame_Traffic, RoI_Traffic, gray_Traffic;
-Mat frame_Uturn, RoI_Uturn, gray_Uturn;
-vector<Rect> Stop, Object, Traffic, Uturn;
+Mat frame_Uturn, RoI_Uturn, gray_Uturn, frame_Signs, RoI_Signs, gray_Signs;
+vector<Rect> Stop, Object, Traffic, Uturn, Signs;
 int dist_Stop, dist_Object, dist_Traffic, dist_Uturn;
 
 void setup()
@@ -50,10 +50,8 @@ void captureFrames()
     if (cap.read(frame))
     {
         cvtColor(frame, frame, COLOR_BGR2RGB);
-        frame_Stop = frame.clone();
         frame_Object = frame.clone();
-        frame_Traffic = frame.clone();
-        frame_Uturn = frame.clone();
+        frame_Signs = frame.clone();
     }
 }
 
@@ -80,26 +78,18 @@ void Threshold()
     add(frameThresh, frameEdge, frameFinal);
     cvtColor(frameFinal, frameFinal, COLOR_GRAY2RGB);
     cvtColor(frameFinal, frameFinalDuplicate, COLOR_RGB2BGR);  // used in histrogram function only
-    cvtColor(frameFinal, frameFinalDuplicate1, COLOR_RGB2BGR); // used in histrogram function only
 }
 
 void Histrogram()
 {
     histrogramLane.resize(CameraWIDTH);
     histrogramLane.clear();
-    // histrogramLaneEnd.resize(CameraWIDTH);
-    // histrogramLaneEnd.clear();
     for (int i = 0; i < CameraWIDTH; i++)
     {
         ROILane = frameFinalDuplicate(Rect(i, 140, 1, 100));
         divide(255, ROILane, ROILane);
         histrogramLane.push_back((int)(sum(ROILane)[0]));
-        // ROILaneEnd = frameFinalDuplicate1(Rect(i, 0, 1, CameraHeight));
-        // divide(255, ROILaneEnd, ROILaneEnd);
-        // histrogramLaneEnd.push_back((int)(sum(ROILaneEnd)[0]));
     }
-    // laneEnd = sum(histrogramLaneEnd)[0];
-    // cout << "Lane END = " << laneEnd << endl;
 }
 
 void LaneFinder()
@@ -145,51 +135,59 @@ int loadCascadeFile()
     return 1;
 }
 
-void Uturn_detection()
+void Signs_detection()
 {
-    RoI_Uturn = frame_Uturn(Rect(100, 0, 200, 240));
-    cvtColor(RoI_Uturn, gray_Uturn, COLOR_RGB2GRAY);
-    equalizeHist(gray_Uturn, gray_Uturn);
-    Uturn_Cascade.detectMultiScale(gray_Uturn, Uturn);
+    RoI_Signs = frame_Signs(Rect(100, 0, 200, 240));
+    cvtColor(RoI_Signs, gray_Signs, COLOR_RGB2GRAY);
+    equalizeHist(gray_Signs, gray_Signs);
+    Uturn_Cascade.detectMultiScale(gray_Signs, Uturn);
+    Stop_Cascade.detectMultiScale(gray_Signs, Stop);
+    Traffic_Cascade.detectMultiScale(gray_Signs, Traffic);
 
     for (int i = 0; i < Uturn.size(); i++)
     {
-        Point P1(Uturn[i].x, Uturn[i].y);
-        Point P2(Uturn[i].x + Uturn[i].width, Uturn[i].y + Uturn[i].height);
+        Point P1_Uturn(Uturn[i].x, Uturn[i].y);
+        Point P2_Uturn(Uturn[i].x + Uturn[i].width, Uturn[i].y + Uturn[i].height);
 
-        rectangle(RoI_Uturn, P1, P2, Scalar(0, 0, 255), 1);
-        putText(RoI_Uturn, "Uturn Sign", P1, FONT_HERSHEY_SIMPLEX, 0.4, Scalar(0, 0, 255, 255), 1);
-        dist_Uturn = (-3.33333) * (P2.x - P1.x) + 170;
-        // dist_Uturn = (P2.x - P1.x) ;
+        rectangle(RoI_Signs, P1_Uturn, P2_Uturn, Scalar(0, 0, 255), 1);
+        putText(RoI_Signs, "uTurn Sign",  Point(P1_Uturn.x, P1_Uturn.y-2), FONT_HERSHEY_SIMPLEX, 0.3,  Scalar(0, 0, 255), 1);
+        dist_Uturn = (P2_Uturn.x - P1_Uturn.x) ;
         ss.str(" ");
         ss.clear();
         ss << "D = " << dist_Uturn << "cm";
-        putText(RoI_Uturn, ss.str(), Point2f(1, 130), FONT_HERSHEY_SIMPLEX, 0.4, Scalar(0, 0, 255), 1);
+        putText(RoI_Signs, ss.str(), Point2f(1, 130), FONT_HERSHEY_SIMPLEX, 0.3, Scalar(0, 0, 255), 1);
     }
-}
-void Stop_detection()
-{
-
-    RoI_Stop = frame_Stop(Rect(100, 0, 200, 240));
-    cvtColor(RoI_Stop, gray_Stop, COLOR_RGB2GRAY);
-    equalizeHist(gray_Stop, gray_Stop);
-    Stop_Cascade.detectMultiScale(gray_Stop, Stop);
 
     for (int i = 0; i < Stop.size(); i++)
     {
-        Point P1(Stop[i].x, Stop[i].y);
-        Point P2(Stop[i].x + Stop[i].width, Stop[i].y + Stop[i].height);
+        Point P1_Stop(Stop[i].x, Stop[i].y);
+        Point P2_Stop(Stop[i].x + Stop[i].width, Stop[i].y + Stop[i].height);
 
-        rectangle(RoI_Stop, P1, P2, Scalar(0, 0, 255), 1);
-        putText(RoI_Stop, "Stop Sign", P1, FONT_HERSHEY_SIMPLEX, 0.4, Scalar(0, 0, 255, 255), 1);
-        dist_Stop = (-3.33333) * (P2.x - P1.x) + 170;
-        // dist_Stop = (P2.x - P1.x) ;
+        rectangle(RoI_Signs, P1_Stop, P2_Stop, Scalar(0, 255, 0), 1);
+        putText(RoI_Signs, "Stop Sign", Point(P1_Stop.x, P1_Stop.y-2), FONT_HERSHEY_SIMPLEX, 0.3, Scalar(0, 255, 0), 1);
+        dist_Stop = (-3.33333) * (P2_Stop.x - P1_Stop.x) + 170;
+        // dist_Stop = (P2_Stop.x - P1_Stop.x) ;
         ss.str(" ");
         ss.clear();
         ss << "D = " << dist_Stop << "cm";
-        putText(RoI_Stop, ss.str(), Point2f(1, 130), FONT_HERSHEY_SIMPLEX, 0.4, Scalar(0, 0, 255), 1);
+        putText(RoI_Signs, ss.str(), Point2f(1, 150), FONT_HERSHEY_SIMPLEX, 0.3, Scalar(0, 255, 0), 1);
+    }
+
+    for (int i = 0; i < Traffic.size(); i++)
+    {
+        Point P1_Traffic(Traffic[i].x, Traffic[i].y);
+        Point P2_Traffic(Traffic[i].x + Traffic[i].width, Traffic[i].y + Traffic[i].height);
+
+        rectangle(RoI_Signs, P1_Traffic, P2_Traffic, Scalar(255, 0, 0), 1);
+        putText(RoI_Signs, "Traffic Sign",Point(P1_Traffic.x, P1_Traffic.y-2), FONT_HERSHEY_SIMPLEX, 0.3, Scalar(255, 0, 0), 1);
+        dist_Traffic = (P2_Traffic.x - P1_Traffic.x) ;
+        ss.str(" ");
+        ss.clear();
+        ss << "D = " << dist_Traffic << "cm";
+        putText(RoI_Signs, ss.str(), Point2f(1, 170), FONT_HERSHEY_SIMPLEX, 0.3, Scalar(255, 0, 0), 1);
     }
 }
+
 
 void Object_detection()
 {
@@ -205,7 +203,7 @@ void Object_detection()
         Point P2(Object[i].x + Object[i].width, Object[i].y + Object[i].height);
 
         rectangle(RoI_Object, P1, P2, Scalar(0, 0, 255), 1);
-        putText(RoI_Object, "Object", P1, FONT_HERSHEY_SIMPLEX, 0.4, Scalar(0, 0, 255, 255), 1);
+        putText(RoI_Object, "Object", Point(P1.x, P1.y-2), FONT_HERSHEY_SIMPLEX, 0.4, Scalar(0, 0, 255, 255), 1);
         dist_Object = (-1.625) * (P2.x - P1.x) + 165.75;
         // dist_Object= (P2.x - P1.x) ;
 
@@ -216,27 +214,6 @@ void Object_detection()
     }
 }
 
-void Traffic_detection()
-{
-
-    RoI_Traffic = frame_Traffic(Rect(100, 0, 200, 240));
-    cvtColor(RoI_Traffic, gray_Traffic, COLOR_RGB2GRAY);
-    equalizeHist(gray_Traffic, gray_Traffic);
-    Traffic_Cascade.detectMultiScale(gray_Traffic, Traffic);
-
-    for (int i = 0; i < Traffic.size(); i++)
-    {
-        Point P1(Traffic[i].x, Traffic[i].y);
-        Point P2(Traffic[i].x + Traffic[i].width, Traffic[i].y + Traffic[i].height);
-        rectangle(RoI_Traffic, P1, P2, Scalar(0, 0, 255), 2);
-        putText(RoI_Traffic, "Traffic Light", P1, FONT_HERSHEY_SIMPLEX, 0.4, Scalar(0, 0, 255, 255), 1);
-        dist_Traffic = (P2.x - P1.x);
-        ss.str(" ");
-        ss.clear();
-        ss << "D = " << dist_Traffic << "cm";
-        putText(RoI_Traffic, ss.str(), Point2f(1, 130), FONT_HERSHEY_SIMPLEX, 0.4, Scalar(0, 0, 255), 1);
-    }
-}
 void displayMonitors()
 {
     namedWindow("orignal", WINDOW_KEEPRATIO);
@@ -251,23 +228,14 @@ void displayMonitors()
     moveWindow("Final", 1280, 100);
     resizeWindow("Final", 640, 480);
     imshow("Final", frameFinal);
-    namedWindow("Stop Sign", WINDOW_KEEPRATIO);
-    moveWindow("Stop Sign", 1280, 580);
-    resizeWindow("Stop Sign", 640, 480);
-    imshow("Stop Sign", RoI_Stop);
-    
-    // namedWindow("Uturn Sign", WINDOW_KEEPRATIO);
-    // moveWindow("Uturn Sign", 1280, 580);
-    // resizeWindow("Uturn Sign", 640, 480);
-    // imshow("Uturn Sign", RoI_Uturn);
     namedWindow("Object", WINDOW_KEEPRATIO);
     moveWindow("Object", 640, 580);
     resizeWindow("Object", 640, 480);
     imshow("Object", RoI_Object);
-    namedWindow("Traffic", WINDOW_KEEPRATIO);
-    moveWindow("Traffic", 0, 580);
-    resizeWindow("Traffic", 640, 480);
-    imshow("Traffic", RoI_Traffic);
+    namedWindow("Sign", WINDOW_KEEPRATIO);
+    moveWindow("Sign", 1280, 580);
+    resizeWindow("Sign", 640, 480);
+    imshow("Sign", RoI_Signs);
     waitKey(1);
 }
 
@@ -300,11 +268,9 @@ int main()
         Threshold();
         Histrogram();
         LaneFinder();
-        LaneCenter();
-        Stop_detection();
-        // Uturn_detection();
+        LaneCenter();    
         Object_detection();
-        Traffic_detection();
+        Signs_detection();
 
         if (dist_Traffic > 15 && dist_Traffic < 40)
         {
@@ -354,15 +320,6 @@ int main()
 
             goto Object;
         }
-        // if (laneEnd > 7000 && laneEnd<10000) // stop
-        // {
-        //     ss.str(" ");
-        //     ss.clear();
-        //     ss << " Lane End";
-        //     putText(frame, ss.str(), Point2f(5, 30), FONT_HERSHEY_SIMPLEX, 0.4, Scalar(0, 0, 255), 1);
-        //     lines.set_values({0, 1, 1, 1});
-        //     // cout << "Lane End" << endl;
-        // }
         else if (Result == 0)
         {
             ss.str(" ");
@@ -438,7 +395,7 @@ int main()
     Traffic_Light:
         displayMonitors();
         while (waitKey(1) != -1)
-        { // stop
+        { // Emergency stop
             ss.str(" ");
             ss.clear();
             ss << "Emergency stop!";
