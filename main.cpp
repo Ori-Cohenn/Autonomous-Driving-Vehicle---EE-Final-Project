@@ -126,24 +126,25 @@ void LaneCenter()
 }
 int loadCascadeFile()
 {
-    if (!Stop_Cascade.load("//home//pi//Autonomus_Driving_Car//MachineLearning//Stop_cascade.xml"))
+    if (!Stop_Cascade.load(".//MachineLearning//Stop_cascade.xml"))
     {
         cerr << "Unable to open stop cascade file" << endl;
     }
-    if (!Object_Cascade.load("//home//pi//Autonomus_Driving_Car//MachineLearning//Object_cascade.xml"))
+    if (!Object_Cascade.load(".//MachineLearning//Object_cascade.xml"))
     {
         cerr << "Unable to open Object cascade file" << endl;
     }
-    if (!Traffic_Cascade.load("//home//pi//Autonomus_Driving_Car//MachineLearning//Trafficc_cascade.xml"))
+    if (!Traffic_Cascade.load(".//MachineLearning//Trafficc_cascade.xml"))
     {
         cerr << "Unable to open Traffic cascade file" << endl;
     }
-    if (!Uturn_Cascade.load("//home//pi//Autonomus_Driving_Car//MachineLearning//uTurn_cascade.xml"))
+    if (!Uturn_Cascade.load(".//MachineLearning//uTurn_cascade.xml"))
     {
         cerr << "Unable to open uTurn cascade file" << endl;
     }
     return 1;
 }
+
 void Uturn_detection()
 {
     RoI_Uturn = frame_Uturn(Rect(100, 0, 200, 240));
