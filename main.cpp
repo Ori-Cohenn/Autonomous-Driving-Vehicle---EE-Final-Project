@@ -13,25 +13,21 @@ using namespace std::chrono;
 using namespace gpiod; // line class changed to lineGPIO
 
 // Image Processing variables
-Mat frame, framePers, frameGray, frameThresh, frameEdge, frameFinal, frameFinalDuplicate, frameFinalDuplicate1;
-Mat ROILane, ROILaneEnd;
+Mat frame, framePers, frameGray, frameThresh, frameEdge, frameFinal, frameFinalDuplicate, ROILane;
 int LeftLanePos, RightLanePos, frameCenter, laneCenter, Result, laneEnd;
 
 vector<int> histrogramLane;
-// vector<int> histrogramLaneEnd;
 
 Point2f Source[] = {Point2f(60, 135), Point2f(200, 135), Point2f(30, 210), Point2f(230, 210)};
 Point2f Destination[] = {Point2f(85, 0), Point2f(180, 0), Point2f(85, 240), Point2f(180, 240)};
 
 VideoCapture cap(0);
-
 stringstream ss;
 
 // Machine Learning variables
 CascadeClassifier Stop_Cascade, Object_Cascade, Traffic_Cascade, Uturn_Cascade;
-Mat frame_Stop, RoI_Stop, gray_Stop, frame_Object, RoI_Object, gray_Object, frame_Traffic, RoI_Traffic, gray_Traffic;
-Mat frame_Uturn, RoI_Uturn, gray_Uturn, frame_Signs, RoI_Signs, gray_Signs;
-vector<Rect> Stop, Object, Traffic, Uturn, Signs;
+Mat frame_Signs, RoI_Signs, gray_Signs, RoI_Object, frame_Object, gray_Object, frame_clone;
+vector<Rect> Stop, Object, Traffic, Uturn;
 int dist_Stop, dist_Object, dist_Traffic, dist_Uturn;
 
 void setup()
@@ -57,7 +53,6 @@ void captureFrames()
 
 void Perspective()
 {
-
     line(frame, Source[0], Source[1], Scalar(0, 0, 255), 2);
     line(frame, Source[1], Source[3], Scalar(0, 0, 255), 2);
     line(frame, Source[3], Source[2], Scalar(0, 0, 255), 2);
@@ -77,7 +72,7 @@ void Threshold()
     Canny(frameGray, frameEdge, 900, 900, 3, false);
     add(frameThresh, frameEdge, frameFinal);
     cvtColor(frameFinal, frameFinal, COLOR_GRAY2RGB);
-    cvtColor(frameFinal, frameFinalDuplicate, COLOR_RGB2BGR);  // used in histrogram function only
+    cvtColor(frameFinal, frameFinalDuplicate, COLOR_RGB2BGR); // used in histrogram function
 }
 
 void Histrogram()
@@ -140,32 +135,33 @@ void Signs_detection()
     RoI_Signs = frame_Signs(Rect(100, 0, 200, 240));
     cvtColor(RoI_Signs, gray_Signs, COLOR_RGB2GRAY);
     equalizeHist(gray_Signs, gray_Signs);
-    Uturn_Cascade.detectMultiScale(gray_Signs, Uturn);
-    Stop_Cascade.detectMultiScale(gray_Signs, Stop);
-    Traffic_Cascade.detectMultiScale(gray_Signs, Traffic);
 
-    for (int i = 0; i < Uturn.size(); i++)
+    Uturn_Cascade.detectMultiScale(gray_Signs, Uturn);
+
+    for (size_t i = 0; i < Uturn.size(); i++)
     {
         Point P1_Uturn(Uturn[i].x, Uturn[i].y);
         Point P2_Uturn(Uturn[i].x + Uturn[i].width, Uturn[i].y + Uturn[i].height);
 
         rectangle(RoI_Signs, P1_Uturn, P2_Uturn, Scalar(0, 0, 255), 1);
-        putText(RoI_Signs, "uTurn Sign",  Point(P1_Uturn.x, P1_Uturn.y-2), FONT_HERSHEY_SIMPLEX, 0.3,  Scalar(0, 0, 255), 1);
-        dist_Uturn = (P2_Uturn.x - P1_Uturn.x) ;
+        putText(RoI_Signs, "uTurn Sign", Point(P1_Uturn.x, P1_Uturn.y - 2), FONT_HERSHEY_SIMPLEX, 0.3, Scalar(0, 0, 255), 1);
+        dist_Uturn = (-0.625) * (P2_Uturn.x - P1_Uturn.x) + 55.5;
         ss.str(" ");
         ss.clear();
         ss << "D = " << dist_Uturn << "cm";
         putText(RoI_Signs, ss.str(), Point2f(1, 130), FONT_HERSHEY_SIMPLEX, 0.3, Scalar(0, 0, 255), 1);
     }
 
-    for (int i = 0; i < Stop.size(); i++)
+    Stop_Cascade.detectMultiScale(gray_Signs, Stop);
+
+    for (size_t i = 0; i < Stop.size(); i++)
     {
         Point P1_Stop(Stop[i].x, Stop[i].y);
         Point P2_Stop(Stop[i].x + Stop[i].width, Stop[i].y + Stop[i].height);
 
         rectangle(RoI_Signs, P1_Stop, P2_Stop, Scalar(0, 255, 0), 1);
-        putText(RoI_Signs, "Stop Sign", Point(P1_Stop.x, P1_Stop.y-2), FONT_HERSHEY_SIMPLEX, 0.3, Scalar(0, 255, 0), 1);
-        dist_Stop = (-3.33333) * (P2_Stop.x - P1_Stop.x) + 170;
+        putText(RoI_Signs, "Stop Sign", Point(P1_Stop.x, P1_Stop.y - 2), FONT_HERSHEY_SIMPLEX, 0.3, Scalar(0, 255, 0), 1);
+        dist_Stop = (-0.625) * (P2_Stop.x - P1_Stop.x) + 58.25;
         // dist_Stop = (P2_Stop.x - P1_Stop.x) ;
         ss.str(" ");
         ss.clear();
@@ -173,21 +169,22 @@ void Signs_detection()
         putText(RoI_Signs, ss.str(), Point2f(1, 150), FONT_HERSHEY_SIMPLEX, 0.3, Scalar(0, 255, 0), 1);
     }
 
-    for (int i = 0; i < Traffic.size(); i++)
+    Traffic_Cascade.detectMultiScale(gray_Signs, Traffic);
+
+    for (size_t i = 0; i < Traffic.size(); i++)
     {
         Point P1_Traffic(Traffic[i].x, Traffic[i].y);
         Point P2_Traffic(Traffic[i].x + Traffic[i].width, Traffic[i].y + Traffic[i].height);
 
         rectangle(RoI_Signs, P1_Traffic, P2_Traffic, Scalar(255, 0, 0), 1);
-        putText(RoI_Signs, "Traffic Sign",Point(P1_Traffic.x, P1_Traffic.y-2), FONT_HERSHEY_SIMPLEX, 0.3, Scalar(255, 0, 0), 1);
-        dist_Traffic = (P2_Traffic.x - P1_Traffic.x) ;
+        putText(RoI_Signs, "Traffic Sign", Point(P1_Traffic.x, P1_Traffic.y - 2), FONT_HERSHEY_SIMPLEX, 0.3, Scalar(255, 0, 0), 1);
+        dist_Traffic = -0.43478*(P2_Traffic.x - P1_Traffic.x)+39.5217;
         ss.str(" ");
         ss.clear();
         ss << "D = " << dist_Traffic << "cm";
         putText(RoI_Signs, ss.str(), Point2f(1, 170), FONT_HERSHEY_SIMPLEX, 0.3, Scalar(255, 0, 0), 1);
     }
 }
-
 
 void Object_detection()
 {
@@ -197,15 +194,15 @@ void Object_detection()
     equalizeHist(gray_Object, gray_Object);
     Object_Cascade.detectMultiScale(gray_Object, Object);
 
-    for (int i = 0; i < Object.size(); i++)
+    for (size_t i = 0; i < Object.size(); i++)
     {
         Point P1(Object[i].x, Object[i].y);
         Point P2(Object[i].x + Object[i].width, Object[i].y + Object[i].height);
 
         rectangle(RoI_Object, P1, P2, Scalar(0, 0, 255), 1);
-        putText(RoI_Object, "Object", Point(P1.x, P1.y-2), FONT_HERSHEY_SIMPLEX, 0.4, Scalar(0, 0, 255, 255), 1);
-        dist_Object = (-1.625) * (P2.x - P1.x) + 165.75;
-        // dist_Object= (P2.x - P1.x) ;
+        putText(RoI_Object, "Object", Point(P1.x, P1.y - 2), FONT_HERSHEY_SIMPLEX, 0.4, Scalar(0, 0, 255, 255), 1);
+        dist_Object = (-1.23) * (P2.x - P1.x) + 89.538;
+        // dist_Object= (P2.x - P1.x);
 
         ss.str(" ");
         ss.clear();
@@ -247,7 +244,7 @@ int main()
     const unsigned int pins[] = {5, 6, 19, 26}; // 5 4 3 2 in the arduino, 5 6 19 26 in meaning GPIO 5,6,19,26 not the pins
     chip chip(gpio_chip);
     line_bulk lines(chip.get_lines({pins[0], pins[1], pins[2], pins[3]}));
-    lines.request({{}, line_request::DIRECTION_OUTPUT});
+    lines.request({{}, line_request::DIRECTION_OUTPUT, {}});
 
     if (!cap.isOpened())
     {
@@ -268,11 +265,11 @@ int main()
         Threshold();
         Histrogram();
         LaneFinder();
-        LaneCenter();    
+        LaneCenter();
         Object_detection();
         Signs_detection();
 
-        if (dist_Traffic > 15 && dist_Traffic < 40)
+        if (dist_Traffic > 10 && dist_Traffic < 30)
         {
             ss.str(" ");
             ss.clear();
@@ -281,10 +278,8 @@ int main()
             lines.set_values({1, 1, 1, 1}); // decimal = 8
             cout << "Traffic Light" << endl;
             dist_Traffic = 0;
-
-            goto Traffic_Light;
         }
-        else if (dist_Stop > 15 && dist_Stop < 40)
+        else if (dist_Stop > 15 && dist_Stop < 35)
         {
             ss.str(" ");
             ss.clear();
@@ -293,10 +288,8 @@ int main()
             lines.set_values({1, 0, 0, 0}); // decimal = 8
             cout << "Stop Sign" << endl;
             dist_Stop = 0;
-
-            goto Stop_Sign;
         }
-        else if (dist_Uturn > 15 && dist_Uturn < 40)
+        else if (dist_Uturn > 0)
         {
             ss.str(" ");
             ss.clear();
@@ -305,10 +298,8 @@ int main()
             lines.set_values({0, 1, 1, 1});
             cout << "Uturn Sign" << endl;
             dist_Uturn = 0;
-
-            goto Uturn_Sign;
         }
-        else if (dist_Object > 20 && dist_Object < 40)
+        else if (dist_Object > 10 && dist_Object < 80)
         {
             ss.str(" ");
             ss.clear();
@@ -317,8 +308,6 @@ int main()
             lines.set_values({1, 0, 0, 1}); // decimal = 8
             cout << "Object" << endl;
             dist_Object = 0;
-
-            goto Object;
         }
         else if (Result == 0)
         {
@@ -389,10 +378,7 @@ int main()
             lines.set_values({0, 1, 1, 0}); // decimal = 6
             cout << "Left3" << endl;
         }
-    Stop_Sign:
-    Uturn_Sign:
-    Object:
-    Traffic_Light:
+    
         displayMonitors();
         while (waitKey(1) != -1)
         { // Emergency stop
